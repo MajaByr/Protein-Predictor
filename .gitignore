@@ -9,7 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
-zad_1.pdf 
+zad_1.pdf
+zad_1.md
 
 # Raw (uncompressed) GAF files - only the .gaf.gz versions are tracked
 data/GAF/*.gaf

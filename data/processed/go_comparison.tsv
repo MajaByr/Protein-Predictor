@@ -1,7 +1,4 @@
-gaf_set	organism	proteins	identical_sets	proteins_with_gaf_only_terms	proteins_with_uniprot_only_terms	mean_gaf_terms	mean_uniprot_terms	mean_gaf_only_terms	mean_uniprot_only_terms
-go_gaf_all	Human	17038	1094	15913	1300	16.5	14.0	2.57	0.1
-go_gaf_all	Rat	5044	773	4150	1096	28.2	26.2	2.35	0.37
-go_gaf_all	Zebrafish	1420	321	1088	103	13.1	11.3	1.96	0.14
-go_gaf_hq	Human	17038	361	13804	15615	9.3	14.0	0.93	5.62
-go_gaf_hq	Rat	5044	25	1134	5018	8.8	26.2	0.26	17.63
-go_gaf_hq	Zebrafish	1420	22	142	1396	4.8	11.3	0.13	6.63
+organism	proteins	mean_uniprot_terms	mean_kept_terms	mean_dropped_terms	total_kept_terms	total_dropped_terms	proteins_all_kept	proteins_none_kept
+Human	17038	14.02	8.4	5.62	143051	95831	1423	1198
+Rat	5044	26.21	8.58	17.63	43290	88906	26	62
+Zebrafish	1420	11.27	4.65	6.63	6598	9409	24	16
