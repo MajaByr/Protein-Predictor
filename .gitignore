@@ -1,0 +1,15 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+zad_1.pdf 
+
+# Raw (uncompressed) GAF files - only the .gaf.gz versions are tracked
+data/GAF/*.gaf
