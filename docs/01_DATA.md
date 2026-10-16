@@ -7,7 +7,7 @@ Cel: na podstawie **sekwencji** białka przewidzieć jego **funkcje** (zbiór te
 - **GAF**: `entry` (unikalne ID białka), funkcja (`go_id`) i dowód na nią (`evidence`). Jeden wiersz to jedna para białko–funkcja, więc to samo `entry` powtarza się w wielu wierszach.
 - **TSV (UniProt)**: również `entry` i funkcje, ale tym razem w jednym wierszu jest cały zbiór funkcji białka, a do tego jego sekwencja. Jedno `entry` to jeden wiersz.
 
-GAF ma dowody (evidence), a TSV ich nie ma. Właśnie dlatego GAF jest nam potrzebny do filtrowania.
+GAF ma dowody (evidence), a TSV ich nie ma. Właśnie dlatego GAF jest nam potrzebny do filtrowania funkcji.
 TSV ma sekwencje, a GAF nie. Dlatego TSV jest potrzebny jako wejście modelu.
 
 ## 1. TSV z UniProt: sekwencje i etykiety (`data/TSV/`)
@@ -20,7 +20,7 @@ P04637   GO:0000122; GO:0000785; GO:0003677…   MEEPQSDPSVEPPLSQETFSDLWKLL…
 ```
 
 - **Entry**: identyfikator białka w UniProt. Jest kluczem łączenia z plikami GAF.
-- **Gene Ontology IDs**: wszystkie funkcje białka według UniProt. To są nasze **etykiety** (ground truth).
+- **Gene Ontology IDs**: wszystkie funkcje białka według UniProt. Z nich wybieramy nasze **etykiety** (tylko te z mocnym dowodem w GAF).
 - **Sequence**: sekwencja aminokwasów (jedna litera to jeden aminokwas). To jest **wejście** modelu.
 
 Jedno ID ma jedną sekwencję i wiele terminów GO.
@@ -42,27 +42,26 @@ Najważniejsze kolumny:
 | `evidence`  | kod dowodowy, czyli skąd wiemy o tej funkcji (np. `IDA` to eksperyment, `IEA` to przewidywanie automatyczne) |
 | `aspect`    | `F` (Molecular Function), `P` (Biological Process), `C` (Cellular Component)                |
 
-Z GAF **nie bierzemy etykiet**. Służy tylko jako filtr: zostawiamy białka, które mają co najmniej jedną funkcję potwierdzoną kodem dowodowym wysokiej jakości (`EXP`, `IDA`, `IPI`, `IMP`, `IGI`, `IEP`, `HTP`, `HDA`, `HMP`, `HGI`, `HEP`, `TAS`, `IC`).
+GAF służy jako **filtr funkcji**: z funkcji białka wypisanych w UniProt zostawiamy tylko te, które w GAF mają co najmniej jeden dowód wysokiej jakości (`EXP`, `IDA`, `IPI`, `IMP`, `IGI`, `IEP`, `HTP`, `HDA`, `HMP`, `HGI`, `HEP`, `TAS`, `IC`). Funkcje potwierdzone tylko słabymi dowodami (np. `IEA` – automatyczne przewidywanie, `ISS` – homologia) odrzucamy. Filtr działa **per funkcja, a nie per białko** – tak samo definiuje się ground truth w benchmarku CAFA.
 
 ## 3. Co robimy i co chcemy dostać
 
 ```
-GAF ──(czy białko ma solidne dowody?)──┐
-                                       ├──> master.tsv ──> proteins.fasta ──> mmseqs ──> podział train/eval/test
-TSV ──(sekwencja + etykiety GO)────────┘
+GAF ──(które funkcje mają mocny dowód?)──┐
+                                         ├──> master.tsv + proteins.fasta ──> podział train/eval/test (docs/02_TRAIN_TEST.md)
+TSV ──(sekwencja + funkcje z UniProt)────┘
 ```
 
-**Krok 3: łączenie danych** (`uv run python -m projekt.merge`, plik [`src/projekt/merge.py`](src/projekt/merge.py))
+**Krok 3: łączenie danych** (`uv run python -m projekt.merge`, plik [`src/projekt/merge.py`](../src/projekt/merge.py))
 
-1. Łączymy GAF i TSV po identyfikatorze `entry` i dodajemy kolumnę z organizmem (Human / Zebrafish / Rat).
-2. Zostawiamy tylko białka z co najmniej jedną adnotacją GAF wysokiej jakości i co najmniej jednym terminem GO w UniProt.
-3. Porównujemy zbiory GO z GAF i z UniProt. Etykietami zostają terminy z UniProt.
-4. Zapisujemy wyniki do `data/processed/`:
-   - `master.tsv`: jedno białko na wiersz, kolumny `entry`, `organism`, `go_ids` (etykiety), `go_gaf_hq`, `sequence`;
+1. Wczytujemy GAF i zostawiamy tylko adnotacje białek z UniProtKB, bez `NOT`, z mocnym dowodem.
+2. Wczytujemy TSV z UniProt i zostawiamy tylko białka z co najmniej jednym terminem GO.
+3. Łączymy obie tabele po `entry` (inner join) i dodajemy kolumnę z organizmem (Human / Zebrafish / Rat).
+4. Dla każdego białka dzielimy funkcje z UniProt na:
+   - **zachowane** – mają mocny dowód w GAF (to są etykiety),
+   - **odrzucone** – nie mają mocnego dowodu.
+5. Białka, którym nie została żadna zachowana funkcja, wypadają.
+6. Zapisujemy wyniki do `data/processed/`:
+   - `master.tsv`: jedno białko na wiersz, kolumny `entry`, `organism`, `go_ids` (etykiety – tylko zachowane funkcje), `sequence`;
    - `proteins.fasta`: same sekwencje w formacie FASTA (`>entry organism`, a pod spodem sekwencja);
-   - `go_comparison.tsv`: statystyki porównania GAF i UniProt.
-
-**Krok 4: podział train/eval/test**
-
-1. `mmseqs easy-cluster` na `proteins.fasta` (`--min-seq-id 0.5 -c 0.8 --cov-mode 0`) grupuje podobne sekwencje w klastry. Wynik to `*_cluster.tsv` z kolumnami reprezentant klastra i członek.
-2. Całe klastry przypisujemy do train/eval/test w proporcji 9:1:1, ze stałym seedem. Dzięki temu podobne białka (np. to samo białko u człowieka i szczura) nie trafią jednocześnie do train i test, więc model nie będzie oceniany na prawie identycznych sekwencjach, które już widział.
+   - `go_comparison.tsv`: per organizm – średnia liczba funkcji zachowanych vs odrzuconych na białko oraz ile białek wypadło.
